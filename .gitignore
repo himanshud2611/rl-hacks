@@ -1,0 +1,23 @@
+# Ignore everything in parent directory
+../*
+
+# Only track the current hacks directory
+!Reinforcement Learning/
+
+# Common ignores
+.DS_Store
+*.pyc
+__pycache__/
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.env
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
