@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recursive Language Models (RLM) - Interactive Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            color: #ffffff;
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(26, 26, 46, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 350px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        #info-panel h1 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        #info-panel p {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #a0a0a0;
+            margin-bottom: 15px;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(26, 26, 46, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 20px 30px;
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.secondary {
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: none;
+        }
+
+        button.secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
+        }
+
+        #step-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(26, 26, 46, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 14px;
+            min-width: 300px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        #step-info h3 {
+            margin-bottom: 8px;
+            color: #667eea;
+            font-size: 16px;
+        }
+
+        #step-info p {
+            color: #a0a0a0;
+            line-height: 1.5;
+            font-size: 13px;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(26, 26, 46, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .legend h4 {
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #667eea;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        #tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 1000;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <div id="info-panel">
+        <h1>🔄 Recursive Language Models</h1>
+        <p>Watch how RLMs decompose queries recursively, using a REPL environment to selectively access context and spawn sub-queries.</p>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress"></div>
+        </div>
+    </div>
+
+    <div id="step-info">
+        <h3 id="step-title">Click Play to Start</h3>
+        <p id="step-description">The visualization will show how a query flows through the RLM system, spawning recursive sub-calls.</p>
+    </div>
+
+    <div id="controls">
+        <button id="playBtn">▶ Play</button>
+        <button id="pauseBtn" class="secondary">⏸ Pause</button>
+        <button id="resetBtn" class="secondary">↻ Reset</button>
+        <button id="nextBtn" class="secondary">→ Next Step</button>
+    </div>
+
+    <div class="legend">
+        <h4>Legend</h4>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #667eea;"></div>
+            <span>Language Model</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #f093fb;"></div>
+            <span>REPL Environment</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #4facfe;"></div>
+            <span>Query Flow</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #43e97b;"></div>
+            <span>Response Flow</span>
+        </div>
+    </div>
+
+    <div id="tooltip"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a0a);
+        scene.fog = new THREE.Fog(0x0a0a0a, 20, 50);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 5, 15);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        mainLight.position.set(5, 10, 5);
+        mainLight.castShadow = true;
+        scene.add(mainLight);
+
+        const purpleLight = new THREE.PointLight(0x667eea, 1, 20);
+        purpleLight.position.set(-5, 5, 0);
+        scene.add(purpleLight);
+
+        const pinkLight = new THREE.PointLight(0xf093fb, 1, 20);
+        pinkLight.position.set(5, 5, 0);
+        scene.add(pinkLight);
+
+        // Create nodes and structures
+        const nodes = [];
+        const connections = [];
+        const particles = [];
+
+        // Node class
+        class RLMNode {
+            constructor(x, y, z, type, label, depth) {
+                this.type = type;
+                this.label = label;
+                this.depth = depth;
+
+                const geometry = type === 'lm'
+                    ? new THREE.SphereGeometry(0.8, 32, 32)
+                    : new THREE.BoxGeometry(1.5, 1, 1.5);
+
+                const color = type === 'lm' ? 0x667eea : 0xf093fb;
+                const material = new THREE.MeshPhongMaterial({
+                    color: color,
+                    emissive: color,
+                    emissiveIntensity: 0.3,
+                    shininess: 100,
+                    transparent: true,
+                    opacity: 0
+                });
+
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.mesh.position.set(x, y, z);
+                this.mesh.castShadow = true;
+                this.mesh.userData = { label, type };
+                scene.add(this.mesh);
+
+                // Add glow effect
+                const glowGeometry = type === 'lm'
+                    ? new THREE.SphereGeometry(1, 32, 32)
+                    : new THREE.BoxGeometry(1.8, 1.3, 1.8);
+                const glowMaterial = new THREE.MeshBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0
+                });
+                this.glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                this.glow.position.set(x, y, z);
+                scene.add(this.glow);
+
+                // Add label
+                this.createLabel(x, y + 1.5, z, label);
+            }
+
+            createLabel(x, y, z, text) {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 512;
+                canvas.height = 128;
+
+                context.fillStyle = 'rgba(0, 0, 0, 0)';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+
+                context.font = 'bold 48px Arial';
+                context.fillStyle = 'white';
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+                context.fillText(text, 256, 64);
+
+                const texture = new THREE.CanvasTexture(canvas);
+                const material = new THREE.SpriteMaterial({
+                    map: texture,
+                    transparent: true,
+                    opacity: 0
+                });
+
+                this.labelSprite = new THREE.Sprite(material);
+                this.labelSprite.position.set(x, y, z);
+                this.labelSprite.scale.set(2, 0.5, 1);
+                scene.add(this.labelSprite);
+            }
+
+            fadeIn(duration = 500) {
+                const startTime = Date.now();
+                const animate = () => {
+                    const progress = Math.min((Date.now() - startTime) / duration, 1);
+                    this.mesh.material.opacity = progress;
+                    this.glow.material.opacity = progress * 0.2;
+                    if (this.labelSprite) this.labelSprite.material.opacity = progress;
+                    if (progress < 1) requestAnimationFrame(animate);
+                };
+                animate();
+            }
+
+            pulse() {
+                const startEmissive = this.mesh.material.emissiveIntensity;
+                const animate = () => {
+                    const time = Date.now() * 0.003;
+                    this.mesh.material.emissiveIntensity = startEmissive + Math.sin(time) * 0.2;
+                    this.glow.material.opacity = 0.2 + Math.sin(time) * 0.1;
+                };
+                return animate;
+            }
+        }
+
+        // Create connection line
+        class Connection {
+            constructor(start, end, color = 0x4facfe) {
+                const points = [
+                    new THREE.Vector3(start.x, start.y, start.z),
+                    new THREE.Vector3(end.x, end.y, end.z)
+                ];
+
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const material = new THREE.LineBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0,
+                    linewidth: 2
+                });
+
+                this.line = new THREE.Line(geometry, material);
+                scene.add(this.line);
+            }
+
+            fadeIn(duration = 500) {
+                const startTime = Date.now();
+                const animate = () => {
+                    const progress = Math.min((Date.now() - startTime) / duration, 1);
+                    this.line.material.opacity = progress * 0.6;
+                    if (progress < 1) requestAnimationFrame(animate);
+                };
+                animate();
+            }
+        }
+
+        // Particle for data flow
+        class FlowParticle {
+            constructor(start, end, color = 0x4facfe) {
+                const geometry = new THREE.SphereGeometry(0.15, 16, 16);
+                const material = new THREE.MeshBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0
+                });
+
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.start = start;
+                this.end = end;
+                this.progress = 0;
+                this.mesh.position.copy(start);
+                scene.add(this.mesh);
+
+                // Add trail
+                const trailGeometry = new THREE.SphereGeometry(0.25, 16, 16);
+                const trailMaterial = new THREE.MeshBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0
+                });
+                this.trail = new THREE.Mesh(trailGeometry, trailMaterial);
+                this.trail.position.copy(start);
+                scene.add(this.trail);
+            }
+
+            animate(duration = 1000) {
+                return new Promise((resolve) => {
+                    const startTime = Date.now();
+                    const animate = () => {
+                        const elapsed = Date.now() - startTime;
+                        this.progress = Math.min(elapsed / duration, 1);
+
+                        // Fade in
+                        if (this.progress < 0.1) {
+                            this.mesh.material.opacity = this.progress * 10;
+                            this.trail.material.opacity = this.progress * 5;
+                        } else if (this.progress > 0.9) {
+                            this.mesh.material.opacity = (1 - this.progress) * 10;
+                            this.trail.material.opacity = (1 - this.progress) * 5;
+                        } else {
+                            this.mesh.material.opacity = 1;
+                            this.trail.material.opacity = 0.5;
+                        }
+
+                        // Move along path
+                        this.mesh.position.lerpVectors(this.start, this.end, this.progress);
+                        this.trail.position.lerpVectors(this.start, this.end, Math.max(0, this.progress - 0.1));
+
+                        if (this.progress < 1) {
+                            requestAnimationFrame(animate);
+                        } else {
+                            scene.remove(this.mesh);
+                            scene.remove(this.trail);
+                            resolve();
+                        }
+                    };
+                    animate();
+                });
+            }
+        }
+
+        // Build the RLM structure
+        // Root level (depth=0)
+        const rootLM = new RLMNode(0, 2, 0, 'lm', 'Root LM', 0);
+        const rootREPL = new RLMNode(0, 0, 0, 'repl', 'REPL Env', 0);
+        const queryInput = new RLMNode(0, 4, -3, 'lm', 'Query', -1);
+        const contextStore = new RLMNode(-3, 0, 0, 'repl', 'Context', 0);
+
+        // Sub-level (depth=1) - Left branch
+        const subLM1 = new RLMNode(-4, -2, 2, 'lm', 'Sub-LM 1', 1);
+        const subREPL1 = new RLMNode(-4, -4, 2, 'repl', 'Sub-REPL 1', 1);
+
+        // Sub-level (depth=1) - Right branch
+        const subLM2 = new RLMNode(4, -2, 2, 'lm', 'Sub-LM 2', 1);
+        const subREPL2 = new RLMNode(4, -4, 2, 'repl', 'Sub-REPL 2', 1);
+
+        // Sub-sub-level (depth=2)
+        const subSubLM = new RLMNode(6, -6, 4, 'lm', 'Sub-Sub-LM', 2);
+
+        nodes.push(rootLM, rootREPL, queryInput, contextStore, subLM1, subREPL1, subLM2, subREPL2, subSubLM);
+
+        // Animation steps
+        const steps = [
+            {
+                title: "Step 1: Query Input",
+                description: "User provides a query and context to the RLM system. The context is stored in the REPL environment as a variable.",
+                action: () => {
+                    queryInput.fadeIn();
+                    setTimeout(() => {
+                        const particle = new FlowParticle(
+                            queryInput.mesh.position,
+                            rootLM.mesh.position,
+                            0x4facfe
+                        );
+                        particle.animate(1000);
+                    }, 500);
+                }
+            },
+            {
+                title: "Step 2: Root LM Activation",
+                description: "The root Language Model receives the query and gains access to the REPL environment with context.",
+                action: () => {
+                    rootLM.fadeIn();
+                    setTimeout(() => {
+                        const conn = new Connection(rootLM.mesh.position, rootREPL.mesh.position);
+                        conn.fadeIn();
+                        connections.push(conn);
+                    }, 300);
+                }
+            },
+            {
+                title: "Step 3: REPL Environment",
+                description: "The REPL environment provides access to context and the call_llm() function for recursive queries.",
+                action: () => {
+                    rootREPL.fadeIn();
+                    contextStore.fadeIn();
+                    setTimeout(() => {
+                        const conn = new Connection(contextStore.mesh.position, rootREPL.mesh.position, 0xf093fb);
+                        conn.fadeIn();
+                        connections.push(conn);
+                    }, 300);
+                }
+            },
+            {
+                title: "Step 4: Generate Code",
+                description: "Root LM generates Python code that will decompose the problem and make recursive sub-queries.",
+                action: () => {
+                    const pulseAnim = rootLM.pulse();
+                    const interval = setInterval(pulseAnim, 50);
+                    setTimeout(() => clearInterval(interval), 2000);
+                }
+            },
+            {
+                title: "Step 5: Spawn Sub-Query 1",
+                description: "REPL executes call_llm() which spawns the first sub-query with a focused sub-context.",
+                action: () => {
+                    const conn = new Connection(rootREPL.mesh.position, subLM1.mesh.position, 0x4facfe);
+                    conn.fadeIn();
+                    connections.push(conn);
+
+                    setTimeout(() => {
+                        const particle = new FlowParticle(
+                            rootREPL.mesh.position,
+                            subLM1.mesh.position,
+                            0x4facfe
+                        );
+                        particle.animate(1000);
+
+                        setTimeout(() => {
+                            subLM1.fadeIn();
+                        }, 500);
+                    }, 300);
+                }
+            },
+            {
+                title: "Step 6: Sub-LM 1 Processing",
+                description: "First sub-LM processes its focused sub-query with a smaller, relevant portion of the context.",
+                action: () => {
+                    subREPL1.fadeIn();
+                    setTimeout(() => {
+                        const conn = new Connection(subLM1.mesh.position, subREPL1.mesh.position);
+                        conn.fadeIn();
+                        connections.push(conn);
+                    }, 300);
+                }
+            },
+            {
+                title: "Step 7: Spawn Sub-Query 2",
+                description: "Meanwhile, the root REPL spawns a second parallel sub-query for another part of the problem.",
+                action: () => {
+                    const conn = new Connection(rootREPL.mesh.position, subLM2.mesh.position, 0x4facfe);
+                    conn.fadeIn();
+                    connections.push(conn);
+
+                    setTimeout(() => {
+                        const particle = new FlowParticle(
+                            rootREPL.mesh.position,
+                            subLM2.mesh.position,
+                            0x4facfe
+                        );
+                        particle.animate(1000);
+
+                        setTimeout(() => {
+                            subLM2.fadeIn();
+                        }, 500);
+                    }, 300);
+                }
+            },
+            {
+                title: "Step 8: Sub-LM 2 Processing",
+                description: "Second sub-LM has its own REPL environment and can make further recursive calls if needed.",
+                action: () => {
+                    subREPL2.fadeIn();
+                    setTimeout(() => {
+                        const conn = new Connection(subLM2.mesh.position, subREPL2.mesh.position);
+                        conn.fadeIn();
+                        connections.push(conn);
+                    }, 300);
+                }
+            },
+            {
+                title: "Step 9: Deep Recursion (Depth=2)",
+                description: "Sub-LM 2 spawns its own sub-query, demonstrating unlimited recursion depth capability.",
+                action: () => {
+                    const conn = new Connection(subREPL2.mesh.position, subSubLM.mesh.position, 0x4facfe);
+                    conn.fadeIn();
+                    connections.push(conn);
+
+                    setTimeout(() => {
+                        const particle = new FlowParticle(
+                            subREPL2.mesh.position,
+                            subSubLM.mesh.position,
+                            0x4facfe
+                        );
+                        particle.animate(1000);
+
+                        setTimeout(() => {
+                            subSubLM.fadeIn();
+                        }, 500);
+                    }, 300);
+                }
+            },
+            {
+                title: "Step 10: Response Propagation",
+                description: "Sub-responses flow back up the call stack, aggregating results hierarchically.",
+                action: () => {
+                    // Deep response
+                    const particle1 = new FlowParticle(
+                        subSubLM.mesh.position,
+                        subLM2.mesh.position,
+                        0x43e97b
+                    );
+                    particle1.animate(1000);
+
+                    setTimeout(() => {
+                        // Sub response 1
+                        const particle2 = new FlowParticle(
+                            subLM1.mesh.position,
+                            rootREPL.mesh.position,
+                            0x43e97b
+                        );
+                        particle2.animate(1000);
+
+                        // Sub response 2
+                        const particle3 = new FlowParticle(
+                            subLM2.mesh.position,
+                            rootREPL.mesh.position,
+                            0x43e97b
+                        );
+                        particle3.animate(1000);
+                    }, 1000);
+                }
+            },
+            {
+                title: "Step 11: Final Synthesis",
+                description: "Root LM receives all sub-responses and synthesizes them into the final answer.",
+                action: () => {
+                    const pulseAnim = rootLM.pulse();
+                    const interval = setInterval(pulseAnim, 50);
+                    setTimeout(() => clearInterval(interval), 2000);
+
+                    setTimeout(() => {
+                        const particle = new FlowParticle(
+                            rootREPL.mesh.position,
+                            rootLM.mesh.position,
+                            0x43e97b
+                        );
+                        particle.animate(1000);
+                    }, 500);
+                }
+            },
+            {
+                title: "Step 12: Complete",
+                description: "Final response is returned. The entire process scaled to handle massive context by decomposing it hierarchically.",
+                action: () => {
+                    // Final glow effect
+                    nodes.forEach(node => {
+                        const pulseAnim = node.pulse();
+                        const interval = setInterval(pulseAnim, 50);
+                        setTimeout(() => clearInterval(interval), 3000);
+                    });
+                }
+            }
+        ];
+
+        // Animation control
+        let currentStep = -1;
+        let isPlaying = false;
+        let animationInterval;
+
+        function nextStep() {
+            if (currentStep < steps.length - 1) {
+                currentStep++;
+                const step = steps[currentStep];
+                document.getElementById('step-title').textContent = step.title;
+                document.getElementById('step-description').textContent = step.description;
+
+                const progress = ((currentStep + 1) / steps.length) * 100;
+                document.getElementById('progress').style.width = progress + '%';
+
+                step.action();
+            } else {
+                pause();
+            }
+        }
+
+        function play() {
+            if (!isPlaying) {
+                isPlaying = true;
+                animationInterval = setInterval(() => {
+                    nextStep();
+                }, 3000);
+                nextStep(); // Start immediately
+            }
+        }
+
+        function pause() {
+            isPlaying = false;
+            if (animationInterval) {
+                clearInterval(animationInterval);
+            }
+        }
+
+        function reset() {
+            pause();
+            currentStep = -1;
+            document.getElementById('progress').style.width = '0%';
+            document.getElementById('step-title').textContent = 'Click Play to Start';
+            document.getElementById('step-description').textContent = 'The visualization will show how a query flows through the RLM system, spawning recursive sub-calls.';
+
+            // Clear scene
+            nodes.forEach(node => {
+                node.mesh.material.opacity = 0;
+                node.glow.material.opacity = 0;
+                if (node.labelSprite) node.labelSprite.material.opacity = 0;
+            });
+
+            connections.forEach(conn => {
+                scene.remove(conn.line);
+            });
+            connections.length = 0;
+        }
+
+        // Event listeners
+        document.getElementById('playBtn').addEventListener('click', play);
+        document.getElementById('pauseBtn').addEventListener('click', pause);
+        document.getElementById('resetBtn').addEventListener('click', reset);
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            pause();
+            nextStep();
+        });
+
+        // Mouse interaction
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const tooltip = document.getElementById('tooltip');
+
+        renderer.domElement.addEventListener('mousemove', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(nodes.map(n => n.mesh));
+
+            if (intersects.length > 0) {
+                const obj = intersects[0].object;
+                tooltip.style.left = event.clientX + 10 + 'px';
+                tooltip.style.top = event.clientY + 10 + 'px';
+                tooltip.textContent = `${obj.userData.label} (${obj.userData.type === 'lm' ? 'Language Model' : 'REPL Environment'})`;
+                tooltip.style.opacity = 1;
+            } else {
+                tooltip.style.opacity = 0;
+            }
+        });
+
+        // Camera animation
+        let cameraAngle = 0;
+        function animateCamera() {
+            cameraAngle += 0.001;
+            camera.position.x = Math.sin(cameraAngle) * 15;
+            camera.position.z = Math.cos(cameraAngle) * 15;
+            camera.lookAt(0, 0, 0);
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            animateCamera();
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
